@@ -11,6 +11,8 @@ public class CameraConnectionFragment extends Fragment
     private final Size inputSize;
     private final int layout;
 
+    private String cameraId;
+
     private CameraConnectionFragment(
             final ConnectionCallback connectionCallback,
             final ImageReader.OnImageAvailableListener imageListener,
@@ -21,6 +23,11 @@ public class CameraConnectionFragment extends Fragment
         this.imageListener = imageListener;
         this.layout = layout;
         this.inputSize = inputSize;
+    }
+
+    public void setCamera(String cameraId)
+    {
+        this.cameraId = cameraId;
     }
 
     public static CameraConnectionFragment newInstance(

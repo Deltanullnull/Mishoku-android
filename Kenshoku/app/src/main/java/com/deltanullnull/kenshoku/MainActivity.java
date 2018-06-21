@@ -4,7 +4,7 @@ import android.Manifest;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Camera;
+import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
@@ -20,7 +20,7 @@ import android.widget.Toast;
 
 import java.util.logging.Logger;
 
-public abstract class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener {
+public abstract class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener, Camera.PreviewCallback {
 
     private static final int PERMISSION_REQUEST = 1;
 
@@ -32,6 +32,15 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     private int previewWidth = 0;
     private int previewHeight = 0;
 
+    private int[] rgbBytes;
+    private byte[] lastPreviewFrame;
+    private byte[][] yuvBytes =  new byte[3][];
+    private int yRowStride;
+
+    private Runnable imageConverter, postInferenceCallback;
+
+    private boolean isProcessingFrame;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,7 +48,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
         if (hasPermission())
         {
-
+            setFragment();
         }
         else
         {
@@ -48,7 +57,60 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     }
 
     @Override
-    public void onImageAvailable(ImageReader reader) {
+    public void onPreviewFrame(final byte [] bytes, final Camera camera)
+    {
+        if (isProcessingFrame)
+        {
+            return;
+        }
+
+        try
+        {
+            if (rgbBytes == null)
+            {
+                Camera.Size previewSize = camera.getParameters().getPreviewSize();
+                previewHeight = previewSize.height;
+                previewWidth = previewSize.width;
+                rgbBytes = new int[previewHeight * previewWidth];
+                onPreviewSizeChosen(new Size(previewWidth, previewHeight), 90);
+            }
+        }
+        catch (final Exception e)
+        {
+            return;
+        }
+
+        isProcessingFrame = true;
+        lastPreviewFrame = bytes;
+        yuvBytes[0] = bytes;
+        yRowStride = previewWidth;
+
+        imageConverter = new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                ImageUtils.convertYUV420SPToARGB8888(bytes, previewWidth, previewHeight, rgbBytes);
+            }
+        };
+
+        postInferenceCallback = new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                camera.addCallbackBuffer(bytes);
+                isProcessingFrame = false;
+            }
+        };
+
+        // processImage()
+
+    }
+
+    @Override
+    public void onImageAvailable(ImageReader reader)
+    {
 
     }
 
@@ -139,7 +201,16 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
                     getLayoutId(),
                     getDesiredPreviewFrameSize()
             );
+
+            camera2Fragment.setCamera(cameraId);
+            fragment = camera2Fragment;
         }
+        else
+        {
+            fragment = new LegacyCameraConnectionFragment(this, getLayoutId(), getDesiredPreviewFrameSize());
+        }
+
+        getFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
     }
 
     private void onPreviewSizeChosen(final Size size, final int rotation)
