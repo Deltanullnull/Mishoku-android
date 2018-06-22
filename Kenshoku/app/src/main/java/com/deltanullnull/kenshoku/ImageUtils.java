@@ -1,5 +1,7 @@
 package com.deltanullnull.kenshoku;
 
+import android.graphics.Matrix;
+
 public class ImageUtils
 {
     static final int kMaxChannelValue = 262143;
@@ -63,6 +65,37 @@ public class ImageUtils
         b = b > kMaxChannelValue ? kMaxChannelValue : (b < 0 ? 0 : b);
 
         return 0xff000000 | ((r << 6) & 0xff0000) | ((g << 2) & 0xff00) | ((b << 10) & 0xff);
+    }
+
+    public static Matrix getTransformationMatrix(
+            final int srcWidth,
+            final int srcHeight,
+            final int dstWidth,
+            final int dstHeight,
+            final int applyRotation,
+            final boolean maintainAspectRatio
+    )
+    {
+        final Matrix matrix = new Matrix();
+
+        if (applyRotation != 0)
+        {
+            matrix.postTranslate(-srcWidth / 2.0f, -srcHeight / 2.0f);
+            matrix.postRotate(applyRotation);
+        }
+
+        final boolean transpose = (Math.abs(applyRotation) + 90) % 180 == 0;
+
+        final int inWidth = transpose ? srcWidth : dstWidth;
+        final int inHeight = transpose ? srcHeight : dstHeight;
+
+        if (inWidth != dstWidth || inHeight != dstHeight)
+        {
+            final float scaleFactorX = dstWidth / (float) inWidth;
+            final float scaleFactorY = dstHeight / (float) inHeight;
+        }
+
+        return matrix;
     }
 
     private static native void convertYUV420SPToARGB8888(

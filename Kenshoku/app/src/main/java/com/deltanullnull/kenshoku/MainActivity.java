@@ -4,6 +4,9 @@ import android.Manifest;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -17,6 +20,8 @@ import android.util.Size;
 import android.util.TypedValue;
 import android.webkit.PermissionRequest;
 import android.widget.Toast;
+import org.jsoup.Jsoup;
+
 
 import java.util.logging.Logger;
 
@@ -29,13 +34,27 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     private static final String PERMISSION_CAMERA = Manifest.permission.CAMERA;
     private static final String PERMISSION_STORAGE = Manifest.permission.WRITE_EXTERNAL_STORAGE;
 
+    private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
+
+    private static final boolean MAINTAIN_ASPECT = true;
+
     private int previewWidth = 0;
     private int previewHeight = 0;
+
+    private int sensorOrientation;
+
+    private Matrix cropToFrameTransform;
+
+    private static final int INPUT_SIZE = 224;
 
     private int[] rgbBytes;
     private byte[] lastPreviewFrame;
     private byte[][] yuvBytes =  new byte[3][];
     private int yRowStride;
+
+    private Matrix frameToCropTransform;
+
+    private Bitmap rgbFrameBitmap, croppedBitmap;
 
     private Runnable imageConverter, postInferenceCallback;
 
@@ -104,7 +123,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
             }
         };
 
-        // processImage()
+        processImage();
 
     }
 
@@ -116,22 +135,22 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
     private boolean hasPermission()
     {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) // If version higher than M
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) // If version higher than M
         {
             // Check, if permission for camera access and write access is granted
             return checkSelfPermission(PERMISSION_CAMERA) == PackageManager.PERMISSION_GRANTED &&
                     checkSelfPermission(PERMISSION_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
-        else
-        {
+        //else
+        //{
             // By default true in lower versions
-            return true;
-        }
+            //return true;
+        //}
     }
 
     private void requestPermission()
     {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
             if (shouldShowRequestPermissionRationale(PERMISSION_STORAGE) || shouldShowRequestPermissionRationale(PERMISSION_CAMERA))
             {
@@ -213,15 +232,55 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         getFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
     }
 
+    protected int[] getRgbBytes()
+    {
+        imageConverter.run();
+        return rgbBytes;
+    }
+
+    private void processImage()
+    {
+        rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
+        final Canvas canvas = new Canvas(croppedBitmap);
+        canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
+    }
+
     private void onPreviewSizeChosen(final Size size, final int rotation)
     {
         final float textSizePx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics()
         );
 
+        previewWidth = size.getWidth();
+        previewHeight = size.getHeight();
+
+        sensorOrientation = rotation - getScreenOrientation();
+        rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.ARGB_8888);
+        croppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
+
+        frameToCropTransform = ImageUtils.getTransformationMatrix(
+            previewWidth,
+            previewHeight,
+            INPUT_SIZE,
+            INPUT_SIZE,
+            sensorOrientation,
+            MAINTAIN_ASPECT
+        );
+
+
+
+        cropToFrameTransform = new Matrix();
+
         // TODO define classifier
 
     }
-    protected abstract int getLayoutId();
-    protected abstract Size getDesiredPreviewFrameSize();
+    private int getLayoutId()
+    {
+        return R.layout.camera_connection_fragment;
+    }
+
+    private Size getDesiredPreviewFrameSize()
+    {
+        return DESIRED_PREVIEW_SIZE;
+    }
 }
