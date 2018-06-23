@@ -7,6 +7,38 @@ public class ImageUtils
     static final int kMaxChannelValue = 262143;
     private static boolean useNativeConversion = true;
 
+    public static void convertYUV420ToARGB8888(
+        byte [] yData,
+        byte [] uData,
+        byte [] vData,
+        int width,
+        int height,
+        int yRowStride,
+        int uvRowStride,
+        int uvPixelStride,
+        int [] out
+    )
+    {
+        // use native conversion
+
+        int yp = 0;
+        for (int j = 0; j < height; j++)
+        {
+            int pY = yRowStride * j;
+            int pUV = uvRowStride * (j >> 1);
+
+            for (int i = 0; i < width; i++)
+            {
+                int uvOffset = pUV * (i >> 1) * uvPixelStride;
+
+                out[yp++] = YUV2RGB(
+                        0xFF & yData[pY + i],
+                        0xFF & uData[uvOffset],
+                        0xFF & vData[uvOffset]);
+            }
+        }
+    }
+
     public static void convertYUV420SPToARGB8888(
             byte [] input,
             int width,
@@ -93,6 +125,21 @@ public class ImageUtils
         {
             final float scaleFactorX = dstWidth / (float) inWidth;
             final float scaleFactorY = dstHeight / (float) inHeight;
+
+            if (maintainAspectRatio)
+            {
+                final float scaleFactor = Math.max(scaleFactorX, scaleFactorY);
+                matrix.postScale(scaleFactor, scaleFactor);
+            }
+            else
+            {
+                matrix.postScale(scaleFactorX, scaleFactorY);
+            }
+        }
+
+        if (applyRotation != 0)
+        {
+            matrix.postTranslate(dstWidth / 2.0f, dstHeight / 2.0f);
         }
 
         return matrix;

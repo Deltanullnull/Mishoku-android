@@ -1,5 +1,8 @@
 package com.deltanullnull.kenshoku;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -23,6 +26,17 @@ public class Recipe
     public void addIngredient(Ingredient ingredient)
     {
         ingredients.add(ingredient);
+    }
+
+    public static Recipe findRecipe(String name)
+    {
+        Recipe r = new Recipe(name);
+
+        Document doc = Jsoup.parse("http://cookpad");
+
+
+
+        return r;
     }
 
 }

@@ -12,17 +12,22 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.os.Build;
+import android.os.Trace;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.Surface;
 import android.webkit.PermissionRequest;
 import android.widget.Toast;
 import org.jsoup.Jsoup;
 
 
+import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
 public abstract class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener, Camera.PreviewCallback {
@@ -46,6 +51,11 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     private Matrix cropToFrameTransform;
 
     private static final int INPUT_SIZE = 224;
+    private static final int IMAGE_MEAN = 127;
+    private static final int IMAGE_STD = 127;
+
+    private static final String INPUT_NAME = "input";
+    private static final String OUTPUT_NAME = "final_result";
 
     private int[] rgbBytes;
     private byte[] lastPreviewFrame;
@@ -130,7 +140,77 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     @Override
     public void onImageAvailable(ImageReader reader)
     {
+        if (previewWidth == 0 || previewHeight == 0)
+            return;
 
+        if (rgbBytes == null)
+        {
+            rgbBytes = new int[previewHeight * previewWidth];
+        }
+        try
+        {
+            final Image image = reader.acquireLatestImage();
+
+            if (image == null)
+                return;
+
+            if (isProcessingFrame)
+            {
+                image.close();
+                return;
+            }
+
+            isProcessingFrame = true;
+            Trace.beginSection("imageAvailable"); // What is it doing?
+            final Plane[] planes = image.getPlanes();
+            fillBytes(planes, yuvBytes);
+            yRowStride = planes[0].getRowStride();
+            final int uvRowStride = planes[1].getRowStride();
+            final int uvPixelStride = planes[1].getPixelStride();
+
+            imageConverter = new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    ImageUtils.convertYUV420ToARGB8888(
+                            yuvBytes[0],
+                            yuvBytes[1],
+                            yuvBytes[2],
+                            previewWidth,
+                            previewHeight,
+                            yRowStride,
+                            uvRowStride,
+                            uvPixelStride,
+                            rgbBytes);
+                }
+            };
+
+            postInferenceCallback = new Runnable() {
+                @Override
+                public void run() {
+                    image.close();
+                    isProcessingFrame = false;
+                }
+            };
+
+            processImage();
+
+        }
+        catch (Exception e)
+        {
+
+        }
+
+        Trace.endSection();
+    }
+
+    private void readyForNextImage()
+    {
+        if (postInferenceCallback != null)
+        {
+            postInferenceCallback.run();
+        }
     }
 
     private boolean hasPermission()
@@ -157,6 +237,19 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
                 Toast.makeText(MainActivity.this, "Camera AND storage permissions are required", Toast.LENGTH_LONG).show();
             }
             requestPermissions(new String[] {PERMISSION_CAMERA, PERMISSION_STORAGE}, PERMISSION_REQUEST);
+        }
+    }
+
+    private void fillBytes(final Plane[] planes, final byte[][] yuvBytes)
+    {
+        for (int i = 0; i < planes.length; i++)
+        {
+            final ByteBuffer buffer = planes[i].getBuffer();
+            if (yuvBytes[i] == null)
+            {
+                yuvBytes[i] = new byte[buffer.capacity()];
+            }
+            buffer.get(yuvBytes[i]);
         }
     }
 
@@ -267,13 +360,40 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
             MAINTAIN_ASPECT
         );
 
-
-
         cropToFrameTransform = new Matrix();
+        frameToCropTransform.invert(cropToFrameTransform);
 
-        // TODO define classifier
+        addCallback(
+                new OverlayView.DrawCallback() {
+                    @Override
+                    public void drawCallback(Canvas canvas) {
+                        //renderDebug
+                    }
+                }
+        );
 
     }
+
+    public void addCallback(final OverlayView.DrawCallback callback)
+    {
+        final OverlayView overlay = (OverlayView) findViewById(R.id.debug_overlay);
+    }
+
+    private int getScreenOrientation()
+    {
+        switch (getWindowManager().getDefaultDisplay().getRotation())
+        {
+            case Surface.ROTATION_90:
+                return 90;
+            case Surface.ROTATION_180:
+                return 180;
+            case Surface.ROTATION_270:
+                return 270;
+            default:
+                return 0;
+        }
+    }
+
     private int getLayoutId()
     {
         return R.layout.camera_connection_fragment;
