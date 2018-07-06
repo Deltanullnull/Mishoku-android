@@ -16,12 +16,16 @@ import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Trace;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.Surface;
+import android.view.ViewDebug;
 import android.webkit.PermissionRequest;
 import android.widget.Toast;
 import org.jsoup.Jsoup;
@@ -30,9 +34,11 @@ import org.jsoup.Jsoup;
 import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
-public abstract class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener, Camera.PreviewCallback {
+public class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener, Camera.PreviewCallback {
 
     private static final int PERMISSION_REQUEST = 1;
+
+    private static final String TAG = "MainActivity";
 
     private boolean useCamera2API;
 
@@ -45,6 +51,9 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
     private int previewWidth = 0;
     private int previewHeight = 0;
+
+    private Handler handler;
+    private HandlerThread handlerThread;
 
     private int sensorOrientation;
 
@@ -75,6 +84,8 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+        Log.d(TAG, "on create");
         if (hasPermission())
         {
             setFragment();
@@ -83,6 +94,8 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         {
             requestPermission();
         }
+
+        Log.d(TAG, "ok!");
     }
 
     @Override
@@ -90,11 +103,13 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     {
         if (isProcessingFrame)
         {
+            Log.d(TAG, "Dropping frame");
             return;
         }
 
         try
         {
+            Log.d(TAG, "on preview frame");
             if (rgbBytes == null)
             {
                 Camera.Size previewSize = camera.getParameters().getPreviewSize();
@@ -199,14 +214,39 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         }
         catch (Exception e)
         {
-
+            Log.d(TAG, "Error in ImageAvailable");
+            Trace.endSection();
+            return;
         }
 
         Trace.endSection();
     }
 
+    @Override
+    public void onRequestPermissionsResult(final int requestCode, final String[] permissions, final int[] grantResults)
+    {
+        //Log.d(TAG, "onRequestPermissionResult");
+        if (requestCode == PERMISSION_REQUEST)
+        {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    && grantResults[1] == PackageManager.PERMISSION_GRANTED)
+            {
+                Log.d(TAG,"permission ok");
+                setFragment();
+            }
+            else
+            {
+                requestPermission();
+            }
+
+        }
+
+    }
+
     private void readyForNextImage()
     {
+        Log.d(TAG, "next img");
         if (postInferenceCallback != null)
         {
             postInferenceCallback.run();
@@ -215,22 +255,23 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
     private boolean hasPermission()
     {
-        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) // If version higher than M
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) // If version higher than M
         {
             // Check, if permission for camera access and write access is granted
             return checkSelfPermission(PERMISSION_CAMERA) == PackageManager.PERMISSION_GRANTED &&
                     checkSelfPermission(PERMISSION_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
-        //else
-        //{
+        else
+        {
             // By default true in lower versions
-            //return true;
-        //}
+            return true;
+        }
     }
 
     private void requestPermission()
     {
-        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        //Log.d(TAG, "requesting permission");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
             if (shouldShowRequestPermissionRationale(PERMISSION_STORAGE) || shouldShowRequestPermissionRationale(PERMISSION_CAMERA))
             {
@@ -281,6 +322,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         catch (CameraAccessException e)
         {
             // TODO output error
+            Log.d(TAG, "Couldn't access camera");
         }
 
         return null;
@@ -288,6 +330,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
     private void setFragment()
     {
+        Log.d(TAG, "setting fragment");
         String cameraId = chooseCamera();
         if (cameraId == null)
         {
@@ -298,6 +341,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         Fragment fragment;
         if (useCamera2API)
         {
+            Log.d(TAG, "using camera2api");
             CameraConnectionFragment camera2Fragment = CameraConnectionFragment.newInstance(
                     new CameraConnectionFragment.ConnectionCallback()
                     {
@@ -306,7 +350,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
                         {
                             previewHeight = size.getHeight();
                             previewWidth = size.getWidth();
-                            this.onPreviewSizeChosen(size, rotation);
+                            MainActivity.this.onPreviewSizeChosen(size, rotation);
                         }
                     },
                     this,
@@ -319,6 +363,7 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         }
         else
         {
+            Log.d(TAG, "using legacyfragment");
             fragment = new LegacyCameraConnectionFragment(this, getLayoutId(), getDesiredPreviewFrameSize());
         }
 
@@ -333,9 +378,22 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
 
     private void processImage()
     {
+        Log.d(TAG, "debugging image");
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
+
+        requestRender();
+        readyForNextImage();
+    }
+
+    private void requestRender()
+    {
+        final OverlayView overlay = (OverlayView) findViewById(R.id.debug_overlay);
+        if (overlay != null)
+        {
+            overlay.postInvalidate();
+        }
     }
 
     private void onPreviewSizeChosen(final Size size, final int rotation)
@@ -394,6 +452,14 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
         }
     }
 
+    private void renderDebug(final Canvas canvas)
+    {
+        /*if (!isDebug())
+        {
+            return;
+        }*/
+    }
+
     private int getLayoutId()
     {
         return R.layout.camera_connection_fragment;
@@ -403,4 +469,21 @@ public abstract class MainActivity extends AppCompatActivity implements ImageRea
     {
         return DESIRED_PREVIEW_SIZE;
     }
+
+    @Override
+    public synchronized void onStart()
+    {
+        super.onStart();
+    }
+
+    @Override
+    public synchronized void onResume()
+    {
+        super.onResume();
+        handlerThread = new HandlerThread("inference");
+        handlerThread.start();
+        handler = new Handler(handlerThread.getLooper());
+    }
+
+
 }
