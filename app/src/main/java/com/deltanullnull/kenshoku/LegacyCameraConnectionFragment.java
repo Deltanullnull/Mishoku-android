@@ -19,6 +19,8 @@ import java.util.List;
 
 public class LegacyCameraConnectionFragment extends Fragment
 {
+    private static final String TAG = "LegacyCameraConnectionFragment";
+
     private Camera.PreviewCallback imageListener;
     private int layout;
     private Size desiredSize;
@@ -48,6 +50,7 @@ public class LegacyCameraConnectionFragment extends Fragment
                 @Override
                 public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height)
                 {
+                    Log.d(TAG, "onSurfaceTextureAvailable " + this);
                     int index = getCameraId();
                     camera = Camera.open(index);
 
@@ -112,12 +115,14 @@ public class LegacyCameraConnectionFragment extends Fragment
     @Override
     public View onCreateView(final LayoutInflater inflater, final ViewGroup container, final Bundle savedInstanceState)
     {
+        Log.d(TAG, "onCreateView " + this);
         return inflater.inflate(layout, container, false);
     }
 
     @Override
     public void onViewCreated(final View view, final Bundle savedInstanceState)
     {
+        Log.d(TAG, "onViewCreated " + this);
         textureView = (AutoFitTextureView) view.findViewById(R.id.texture);
         //super.onViewCreated(view, savedInstanceState);
     }
@@ -125,12 +130,14 @@ public class LegacyCameraConnectionFragment extends Fragment
     @Override
     public void onActivityCreated(final Bundle savedInstance)
     {
+        Log.d(TAG, "onActivityCreated " + this);
         super.onActivityCreated(savedInstance);
     }
 
     @Override
     public void onResume()
     {
+        Log.d(TAG, "onResume " + this);
         super.onResume();
         startBackgroundThread();
 
@@ -147,6 +154,7 @@ public class LegacyCameraConnectionFragment extends Fragment
     @Override
     public void onPause()
     {
+        Log.d(TAG, "onPause " + this);
         stopCamera();
         stopBackgroundThread();
         super.onPause();

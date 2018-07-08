@@ -18,6 +18,7 @@ import android.media.ImageReader;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.SystemClock;
 import android.os.Trace;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
@@ -37,6 +38,7 @@ import org.jsoup.Jsoup;
 
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.logging.Logger;
 
 public class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener, Camera.PreviewCallback {
@@ -57,12 +59,19 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     private int previewWidth = 0;
     private int previewHeight = 0;
 
+    private ImageClassifier classifier;
+
     private Handler handler;
     private HandlerThread handlerThread;
 
     private int sensorOrientation;
 
     private Matrix cropToFrameTransform;
+
+    private List<Recognition> mResults;
+
+    private static final String MODEL_FILE = "file:///android_asset/mishoku_graph.pb";
+    private static final String LABEL_FILE = "file:///android_asset/mishoku_labels.txt";
 
     private static final int INPUT_SIZE = 224;
     private static final int IMAGE_MEAN = 127;
@@ -115,6 +124,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     @Override
     public void onPreviewFrame(final byte [] bytes, final Camera camera)
     {
+        Log.d(TAG, "onPreviewFrame " + this);
         if (isProcessingFrame)
         {
             Log.d(TAG, "Dropping frame");
@@ -169,6 +179,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     @Override
     public void onImageAvailable(ImageReader reader)
     {
+        Log.d(TAG, "onImageAvailable");
         if (previewWidth == 0 || previewHeight == 0)
             return;
 
@@ -239,7 +250,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     @Override
     public void onRequestPermissionsResult(final int requestCode, final String[] permissions, final int[] grantResults)
     {
-        //Log.d(TAG, "onRequestPermissionResult");
+        Log.d(TAG, "onRequestPermissionResult");
         if (requestCode == PERMISSION_REQUEST)
         {
             if (grantResults.length > 0
@@ -353,34 +364,30 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         }
 
         Fragment fragment;
-        if (useCamera2API)
-        {
-            Log.d(TAG, "using camera2api");
-            CameraConnectionFragment camera2Fragment = CameraConnectionFragment.newInstance(
-                    new CameraConnectionFragment.ConnectionCallback()
-                    {
-                        @Override
-                        public void onPreviewSizeChosen(final Size size, final int rotation)
-                        {
-                            previewHeight = size.getHeight();
-                            previewWidth = size.getWidth();
-                            MainActivity.this.onPreviewSizeChosen(size, rotation);
-                        }
-                    },
-                    this,
-                    getLayoutId(),
-                    getDesiredPreviewFrameSize()
-            );
+
+        if (useCamera2API) {
+            Log.d(TAG, "using CameraConnectionFragment");
+            CameraConnectionFragment camera2Fragment =
+                    CameraConnectionFragment.newInstance(
+                            new CameraConnectionFragment.ConnectionCallback() {
+                                @Override
+                                public void onPreviewSizeChosen(final Size size, final int rotation) {
+                                    previewHeight = size.getHeight();
+                                    previewWidth = size.getWidth();
+                                    onPreviewSizeChosen(size, rotation);
+                                }
+                            },
+                            this,
+                            getLayoutId(),
+                            getDesiredPreviewFrameSize());
 
             camera2Fragment.setCamera(cameraId);
             fragment = camera2Fragment;
-        }
-        else
-        {
-            Log.d(TAG, "using legacyfragment");
+        } else
+            {
+            Log.d(TAG, "using LegacyFragment");
             fragment = new LegacyCameraConnectionFragment(this, getLayoutId(), getDesiredPreviewFrameSize());
         }
-
         getFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
     }
 
@@ -397,8 +404,20 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
 
-        requestRender();
-        readyForNextImage();
+        runInBackground(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        final long startTime = SystemClock.uptimeMillis();
+                        mResults = classifier.recognizeImage(rgbFrameBitmap);
+
+                        requestRender();
+                        readyForNextImage();
+                    }
+                }
+        );
+
+
     }
 
     private void requestRender()
@@ -415,6 +434,17 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         final float textSizePx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics()
         );
+
+        /*classifier = ImageClassifier.create(
+                getAssets(),
+                MODEL_FILE,
+                LABEL_FILE,
+                INPUT_SIZE,
+                IMAGE_MEAN,
+                IMAGE_STD,
+                INPUT_NAME,
+                OUTPUT_NAME
+        );*/
 
         previewWidth = size.getWidth();
         previewHeight = size.getHeight();
@@ -444,6 +474,14 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 }
         );
 
+    }
+
+    protected synchronized void runInBackground(final Runnable r)
+    {
+        if (handler != null)
+        {
+            handler.post(r);
+        }
     }
 
     public void addCallback(final OverlayView.DrawCallback callback)
@@ -487,27 +525,14 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     @Override
     public synchronized void onStart()
     {
+        Log.d(TAG, "onStart" + this);
         super.onStart();
-
-        int id = TestObject.values()[0].getLayoutResId();
-
-        Log.d(TAG, "layout id: " + id);
-
-        RelativeLayout v = (RelativeLayout) findViewById(R.id.blue);
-
-        if (v != null)
-        {
-            Log.d(TAG, "Setting button");
-            Button b = new Button(this);
-            b.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
-
-            v.addView(b);
-        }
     }
 
     @Override
     public synchronized void onResume()
     {
+        Log.d(TAG, "onResume" + this);
         super.onResume();
         handlerThread = new HandlerThread("inference");
         handlerThread.start();
