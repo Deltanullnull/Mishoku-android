@@ -19,14 +19,19 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Trace;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.Surface;
+import android.view.View;
 import android.view.ViewDebug;
 import android.webkit.PermissionRequest;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 import org.jsoup.Jsoup;
 
@@ -96,6 +101,15 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         }
 
         Log.d(TAG, "ok!");
+
+        ViewPager viewPager = (ViewPager) findViewById(R.id.viewPager);
+
+        if (viewPager != null)
+        {
+            Log.d(TAG, "Setting adapter");
+            viewPager.setAdapter(new RecipeAdapter(this));
+        }
+
     }
 
     @Override
@@ -109,7 +123,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
         try
         {
-            Log.d(TAG, "on preview frame");
+            //Log.d(TAG, "on preview frame");
             if (rgbBytes == null)
             {
                 Camera.Size previewSize = camera.getParameters().getPreviewSize();
@@ -246,7 +260,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private void readyForNextImage()
     {
-        Log.d(TAG, "next img");
+        //Log.d(TAG, "next img");
         if (postInferenceCallback != null)
         {
             postInferenceCallback.run();
@@ -378,7 +392,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private void processImage()
     {
-        Log.d(TAG, "debugging image");
+        //Log.d(TAG, "debugging image");
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
@@ -474,6 +488,21 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     public synchronized void onStart()
     {
         super.onStart();
+
+        int id = TestObject.values()[0].getLayoutResId();
+
+        Log.d(TAG, "layout id: " + id);
+
+        RelativeLayout v = (RelativeLayout) findViewById(R.id.blue);
+
+        if (v != null)
+        {
+            Log.d(TAG, "Setting button");
+            Button b = new Button(this);
+            b.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+
+            v.addView(b);
+        }
     }
 
     @Override

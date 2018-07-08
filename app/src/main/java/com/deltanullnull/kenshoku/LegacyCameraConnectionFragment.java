@@ -4,6 +4,8 @@ import android.app.Fragment;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.HandlerThread;
+import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.LayoutInflater;
@@ -81,7 +83,9 @@ public class LegacyCameraConnectionFragment extends Fragment
                     Camera.Size s = camera.getParameters().getPreviewSize();
                     camera.addCallbackBuffer(new byte[ImageUtils.getYUVByteSize(s.height, s.width)]);
 
-                    textureView
+                    textureView.setAspectRatio(s.height, s.width);
+
+                    camera.startPreview();
                 }
 
                 @Override
@@ -93,7 +97,7 @@ public class LegacyCameraConnectionFragment extends Fragment
                 @Override
                 public boolean onSurfaceTextureDestroyed(SurfaceTexture surface)
                 {
-                    return false;
+                    return true;
                 }
 
                 @Override
@@ -103,10 +107,80 @@ public class LegacyCameraConnectionFragment extends Fragment
                 }
             };
 
+    private HandlerThread backgroundThread;
+
     @Override
     public View onCreateView(final LayoutInflater inflater, final ViewGroup container, final Bundle savedInstanceState)
     {
         return inflater.inflate(layout, container, false);
+    }
+
+    @Override
+    public void onViewCreated(final View view, final Bundle savedInstanceState)
+    {
+        textureView = (AutoFitTextureView) view.findViewById(R.id.texture);
+        //super.onViewCreated(view, savedInstanceState);
+    }
+
+    @Override
+    public void onActivityCreated(final Bundle savedInstance)
+    {
+        super.onActivityCreated(savedInstance);
+    }
+
+    @Override
+    public void onResume()
+    {
+        super.onResume();
+        startBackgroundThread();
+
+        if (textureView.isAvailable())
+        {
+            camera.startPreview();
+        }
+        else
+        {
+            textureView.setSurfaceTextureListener(surfaceTextureListener);
+        }
+    }
+
+    @Override
+    public void onPause()
+    {
+        stopCamera();
+        stopBackgroundThread();
+        super.onPause();
+    }
+
+    private void startBackgroundThread()
+    {
+        backgroundThread = new HandlerThread("CameraBackground");
+        backgroundThread.start();
+    }
+
+    private void stopBackgroundThread()
+    {
+        backgroundThread.quitSafely();
+        try
+        {
+            backgroundThread.join();
+            backgroundThread = null;
+        }
+        catch (final InterruptedException e)
+        {
+            //Log.d(TAG)
+        }
+    }
+
+    protected void stopCamera()
+    {
+        if (camera != null)
+        {
+            camera.stopPreview();
+            camera.setPreviewCallback(null);
+            camera.release();
+            camera = null;
+        }
     }
 
     private int getCameraId()

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Kenshoku</string>
+    <string name="red">Red</string>
+    <string name="blue">Blue</string>
 </resources>
