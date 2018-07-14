@@ -18,4 +18,6 @@ public class Recognition
     {
         return confidence;
     }
+
+    public String getTitle() { return title; }
 }

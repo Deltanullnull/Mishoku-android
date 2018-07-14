@@ -145,6 +145,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         }
         catch (final Exception e)
         {
+            Log.d(TAG, e.getMessage());
             return;
         }
 
@@ -339,6 +340,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 if (map == null)
                     continue;
 
+                Log.d(TAG, "I have a camera");
                 useCamera2API = (facing == CameraCharacteristics.LENS_FACING_EXTERNAL);
 
                 return cameraId;
@@ -399,7 +401,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private void processImage()
     {
-        //Log.d(TAG, "debugging image");
+        Log.d(TAG, "processing image");
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
@@ -409,7 +411,9 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                     @Override
                     public void run() {
                         final long startTime = SystemClock.uptimeMillis();
-                        mResults = classifier.recognizeImage(rgbFrameBitmap);
+                        mResults = classifier.recognizeImage(croppedBitmap);
+
+                        // TODO display in viewpager
 
                         requestRender();
                         readyForNextImage();
@@ -435,7 +439,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
             TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics()
         );
 
-        /*classifier = ImageClassifier.create(
+        classifier = ImageClassifier.create(
                 getAssets(),
                 MODEL_FILE,
                 LABEL_FILE,
@@ -444,7 +448,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 IMAGE_STD,
                 INPUT_NAME,
                 OUTPUT_NAME
-        );*/
+        );
 
         previewWidth = size.getWidth();
         previewHeight = size.getHeight();

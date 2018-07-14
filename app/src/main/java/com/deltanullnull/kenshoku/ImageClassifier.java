@@ -70,7 +70,7 @@ public class ImageClassifier
         }
         catch (IOException e)
         {
-
+            Log.d(TAG, "Failed to open labelFile");
         }
 
         imageClassifier.inferenceInterface = new TensorFlowInferenceInterface(assetManager, modelFileName);
@@ -94,51 +94,58 @@ public class ImageClassifier
     {
         Trace.beginSection("recognizeImage");
 
-        bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-        for (int i = 0; i < intValues.length; i++)
-        {
-            final int value = intValues[i];
+        Log.d(TAG, "recognizing image");
 
-            floatValues[i * 3 + 0] = (((value >> 16) & 0xFF) - imageMean) / imageStd;
-            floatValues[i * 3 + 1] = (((value >> 8) & 0xFF) - imageMean) / imageStd;
-            floatValues[i * 3 + 2] = (((value >> 0) & 0xFF) - imageMean) / imageStd;
-        }
+        if (intValues != null) {
+            Log.d(TAG, "size: " + bitmap.getWidth() + ", " + bitmap.getHeight() );
+            bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+            for (int i = 0; i < intValues.length; i++) {
+                final int value = intValues[i];
 
-        inferenceInterface.feed(inputName, floatValues, 1, inputSize, 3);
-
-        inferenceInterface.run(outputNames, false);
-
-        inferenceInterface.fetch(outputName, outputs);
-
-        PriorityQueue<Recognition> pq = new PriorityQueue<>(
-                3,
-                new Comparator<Recognition>() {
-                    @Override
-                    public int compare(Recognition o1, Recognition o2) {
-                        return Float.compare(o1.getConfidence(), o2.getConfidence());
-                    }
-                }
-        );
-
-        for (int i = 0; i < outputs.length; i++)
-        {
-            if (outputs[i] > THRESHOLD)
-            {
-                pq.add(
-                        new Recognition("" + i, i <= labels.size() ? labels.get(i) : "unknown", outputs[i])
-                );
+                floatValues[i * 3 + 0] = (((value >> 16) & 0xFF) );
+                floatValues[i * 3 + 1] = (((value >> 8) & 0xFF) );
+                floatValues[i * 3 + 2] = (((value >> 0) & 0xFF) );
             }
+
+            inferenceInterface.feed(inputName, floatValues, 1, inputSize, inputSize, 3);
+
+            inferenceInterface.run(outputNames, false);
+
+            inferenceInterface.fetch(outputName, outputs);
+
+            PriorityQueue<Recognition> pq = new PriorityQueue<>(
+                    3,
+                    new Comparator<Recognition>() {
+                        @Override
+                        public int compare(Recognition o1, Recognition o2) {
+                            return Float.compare(o1.getConfidence(), o2.getConfidence());
+                        }
+                    }
+            );
+
+            for (int i = 0; i < outputs.length; i++) {
+                if (outputs[i] > THRESHOLD) {
+                    pq.add(
+                            new Recognition("" + i, i <= labels.size() ? labels.get(i) : "unknown", outputs[i])
+                    );
+                }
+            }
+
+            int recognitionSize = Math.min(pq.size(), MAX_RESULTS);
+            final ArrayList<Recognition> recognitions = new ArrayList<>();
+            for (int i = 0; i < recognitionSize; i++) {
+                recognitions.add(pq.poll());
+            }
+
+            Trace.endSection();
+
+            if (recognitions.size() > 0)
+                Log.d(TAG, "new recognitions: " + recognitions.get(0).getTitle());
+
+            return recognitions;
         }
 
-        int recognitionSize = Math.min(pq.size(), MAX_RESULTS);
-        final ArrayList<Recognition> recognitions = new ArrayList<>();
-        for (int i = 0; i < recognitionSize; i++)
-        {
-            recognitions.add(pq.poll());
-        }
+        return null;
 
-        Trace.endSection();
-
-        return recognitions;
     }
 }
