@@ -102,9 +102,13 @@ public class ImageClassifier
             for (int i = 0; i < intValues.length; i++) {
                 final int value = intValues[i];
 
-                floatValues[i * 3 + 0] = (((value >> 16) & 0xFF) );
-                floatValues[i * 3 + 1] = (((value >> 8) & 0xFF) );
-                floatValues[i * 3 + 2] = (((value >> 0) & 0xFF) );
+
+                floatValues[i * 3 + 0] = (((value >> 16) & 0xFF) ) ;
+                floatValues[i * 3 + 1] = (((value >> 8) & 0xFF) ) ;
+                floatValues[i * 3 + 2] = (((value >> 0) & 0xFF) ) ;
+                /*floatValues[i * 3 + 0] = (((value >> 16) & 0xFF) - imageMean) / imageStd;
+                floatValues[i * 3 + 1] = (((value >> 8) & 0xFF) - imageMean) / imageStd;
+                floatValues[i * 3 + 2] = (((value >> 0) & 0xFF) - imageMean) / imageStd;*/
             }
 
             inferenceInterface.feed(inputName, floatValues, 1, inputSize, inputSize, 3);
@@ -118,7 +122,7 @@ public class ImageClassifier
                     new Comparator<Recognition>() {
                         @Override
                         public int compare(Recognition o1, Recognition o2) {
-                            return Float.compare(o1.getConfidence(), o2.getConfidence());
+                            return Float.compare(o2.getConfidence(), o1.getConfidence());
                         }
                     }
             );
@@ -140,7 +144,7 @@ public class ImageClassifier
             Trace.endSection();
 
             if (recognitions.size() > 0)
-                Log.d(TAG, "new recognitions: " + recognitions.get(0).getTitle());
+                Log.d(TAG, "new recognitions: " + recognitions.get(0).getTitle() + " - " + recognitions.get(0).getConfidence());
 
             return recognitions;
         }

@@ -7,19 +7,4 @@
     android:id="@+id/container"
     tools:context=".MainActivity">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:layout_alignParentBottom="true"
-        android:text="Capture"
-        />
-
-    <android.support.v4.view.ViewPager
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/viewPager">
-    </android.support.v4.view.ViewPager>
-
-
 </RelativeLayout>

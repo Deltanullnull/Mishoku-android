@@ -2,7 +2,12 @@ package com.deltanullnull.kenshoku;
 
 import android.app.Fragment;
 import android.media.ImageReader;
+import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,6 +16,8 @@ import java.util.List;
 
 public class CameraConnectionFragment extends Fragment
 {
+    private static final String TAG = "CameraConnectionFragment";
+
     private final ConnectionCallback cameraConnectionCallback;
     private final ImageReader.OnImageAvailableListener imageListener;
     private final Size inputSize;
@@ -30,6 +37,13 @@ public class CameraConnectionFragment extends Fragment
         this.imageListener = imageListener;
         this.layout = layout;
         this.inputSize = inputSize;
+    }
+
+    @Override
+    public View onCreateView(final LayoutInflater inflater, final ViewGroup container, final Bundle savedInstanceState)
+    {
+        Log.d(TAG, "onCreateView " + this);
+        return inflater.inflate(layout, container, false);
     }
 
     public void setCamera(String cameraId)

@@ -176,7 +176,7 @@ public class LegacyCameraConnectionFragment extends Fragment
         }
         catch (final InterruptedException e)
         {
-            //Log.d(TAG)
+            Log.d(TAG, e.getMessage());
         }
     }
 

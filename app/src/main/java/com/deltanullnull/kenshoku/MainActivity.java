@@ -74,8 +74,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     private static final String LABEL_FILE = "file:///android_asset/mishoku_labels.txt";
 
     private static final int INPUT_SIZE = 224;
-    private static final int IMAGE_MEAN = 127;
-    private static final int IMAGE_STD = 127;
+    private static final int IMAGE_MEAN = 128;
+    private static final int IMAGE_STD = 128;
 
     private static final String INPUT_NAME = "input";
     private static final String OUTPUT_NAME = "final_result";
@@ -111,13 +111,13 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
         Log.d(TAG, "ok!");
 
-        ViewPager viewPager = (ViewPager) findViewById(R.id.viewPager);
+        /*ViewPager viewPager = (ViewPager) findViewById(R.id.viewPager);
 
         if (viewPager != null)
         {
             Log.d(TAG, "Setting adapter");
             viewPager.setAdapter(new RecipeAdapter(this));
-        }
+        };*/
 
     }
 
@@ -397,6 +397,12 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     {
         imageConverter.run();
         return rgbBytes;
+    }
+
+    public void onClickListener(View view)
+    {
+        // TODO replace with recipe view
+        Log.d(TAG, "capturing");
     }
 
     private void processImage()

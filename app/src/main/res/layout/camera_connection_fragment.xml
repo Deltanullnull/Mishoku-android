@@ -5,17 +5,26 @@
     android:layout_height="match_parent">
 
     <com.deltanullnull.kenshoku.AutoFitTextureView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:id="@+id/texture"
         />
 
     <com.deltanullnull.kenshoku.OverlayView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/debug_overlay"/>
+        android:id="@+id/debug_overlay"
+        />
 
-
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/btnCapture"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentBottom="true"
+        android:text="Capture"
+        android:onClick="onClickListener"
+        />
 
 
 
